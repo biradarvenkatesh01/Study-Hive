@@ -1,105 +1,82 @@
-// frontend/script.js (Updated for Firebase)
+// frontend/script.js (Final Updated Code for Step 6)
 
-// Application state (This will now be updated by firebase-auth.js)
+// Application state (Now initialized as empty, will be filled from API)
 const appState = {
   currentPage: "login",
   selectedGroup: null,
   isAuthenticated: false,
   user: null,
-  // This static data will be replaced by API calls later
-  studyGroups: [
-    {
-      id: 1,
-      name: "Advanced Mathematics",
-      subject: "Mathematics",
-      members: 12,
-      description: "Calculus III and Linear Algebra study group",
-      nextSession: "2024-01-15 14:00",
-      progress: 75,
-    },
-    {
-      id: 2,
-      name: "Computer Science Fundamentals",
-      subject: "Computer Science",
-      members: 8,
-      description: "Data structures and algorithms practice",
-      nextSession: "2024-01-16 16:00",
-      progress: 60,
-    },
-    {
-      id: 3,
-      name: "Organic Chemistry Lab",
-      subject: "Chemistry",
-      members: 15,
-      description: "Lab reports and reaction mechanisms",
-      nextSession: "2024-01-17 10:00",
-      progress: 45,
-    },
-  ],
-  resources: [
-    {
-      id: 1,
-      title: "Calculus III Study Guide",
-      type: "PDF",
-      subject: "Mathematics",
-      uploadedBy: "Sarah Chen",
-      uploadDate: "2024-01-10",
-      downloads: 45,
-    },
-    {
-      id: 2,
-      title: "Algorithm Visualization Tool",
-      type: "Interactive",
-      subject: "Computer Science",
-      uploadedBy: "Mike Johnson",
-      uploadDate: "2024-01-12",
-      downloads: 32,
-    },
-    {
-      id: 3,
-      title: "Chemistry Lab Safety Video",
-      type: "Video",
-      subject: "Chemistry",
-      uploadedBy: "Dr. Williams",
-      uploadDate: "2024-01-08",
-      downloads: 67,
-    },
-  ],
-}
+  studyGroups: [], // <-- STATIC DATA REMOVED, WILL BE FETCHED FROM DB
+  resources: [], // <-- STATIC DATA REMOVED FOR FUTURE USE
+};
 
 // Utility functions
 function createElement(tag, className = "", content = "") {
-  const element = document.createElement(tag)
-  if (className) element.className = className
-  if (content) element.innerHTML = content
-  return element
+  const element = document.createElement(tag);
+  if (className) element.className = className;
+  if (content) element.innerHTML = content;
+  return element;
 }
 
 function clearContainer(container) {
-  container.innerHTML = ""
+  container.innerHTML = "";
 }
 
-// --- REMOVED --- handleLogin and handleSignup functions are no longer needed.
-// Firebase's onAuthStateChanged in firebase-auth.js now handles this.
-
-// --- UPDATED --- Authentication functions
+// Authentication functions
 function handleLogout() {
-  signOut(); // This function is now defined in firebase-auth.js
+  signOut(); // This function is defined in firebase-auth.js
 }
+
+// --- ADD THIS NEW FUNCTION TO FETCH DATA FROM YOUR BACKEND ---
+async function fetchStudyGroups() {
+  // Get the current user's token from Firebase
+  const user = auth.currentUser;
+  if (!user) {
+    console.log("No user is logged in, cannot fetch groups.");
+    return;
+  }
+
+  try {
+    const token = await user.getIdToken();
+
+    const response = await fetch('http://localhost:5001/api/groups', {
+      headers: {
+        // Send the token in the Authorization header
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Could not fetch study groups.');
+    }
+
+    const groupsFromDB = await response.json();
+    console.log("Groups fetched from DB:", groupsFromDB);
+
+    // Replace appState's static data with data from the DB
+    appState.studyGroups = groupsFromDB;
+
+  } catch (error)    {
+    console.error("Error fetching study groups:", error);
+    // If there's an error, set groups to empty
+    appState.studyGroups = [];
+  }
+}
+// ----------------------------------------------------------------
 
 // Navigation functions
 function navigateTo(page) {
-  appState.currentPage = page
-  renderApp()
+  appState.currentPage = page;
+  renderApp();
 }
 
 function selectGroup(group) {
-  appState.selectedGroup = group
-  appState.currentPage = "study-group"
-  renderApp()
+  appState.selectedGroup = group;
+  appState.currentPage = "study-group";
+  renderApp();
 }
 
-// --- REPLACED --- Component creation functions
+// Component creation functions
 function createLoginForm() {
   const container = createElement("div", "auth-container");
   const form = createElement("div", "form-container");
@@ -120,7 +97,6 @@ function createLoginForm() {
 
   container.appendChild(form);
 
-  // Add event listener for the new Google Sign-In button
   form.querySelector("#googleSignInBtn").addEventListener("click", () => {
     signInWithGoogle(); // This function is from firebase-auth.js
   });
@@ -128,10 +104,8 @@ function createLoginForm() {
   return container;
 }
 
-// --- REMOVED --- createSignupForm is no longer needed.
-
 function createSidebar() {
-  const sidebar = createElement("div", "sidebar")
+  const sidebar = createElement("div", "sidebar");
 
   sidebar.innerHTML = `
         <div class="sidebar-logo">
@@ -161,26 +135,25 @@ function createSidebar() {
                 </a>
             </li>
         </nav>
-    `
+    `;
 
-  // Add event listeners
   sidebar.querySelectorAll("[data-page]").forEach((link) => {
     link.addEventListener("click", (e) => {
-      e.preventDefault()
-      navigateTo(e.target.dataset.page)
-    })
-  })
+      e.preventDefault();
+      navigateTo(e.target.dataset.page);
+    });
+  });
 
   sidebar.querySelector("#logoutBtn").addEventListener("click", (e) => {
-    e.preventDefault()
-    handleLogout()
-  })
+    e.preventDefault();
+    handleLogout();
+  });
 
-  return sidebar
+  return sidebar;
 }
 
 function createDashboard() {
-  const container = createElement("div")
+  const container = createElement("div");
 
   container.innerHTML = `
         <div class="page-header">
@@ -235,170 +208,73 @@ function createDashboard() {
                 </div>
             </div>
         </div>
-    `
+    `;
 
-  // Render study groups
-  const groupsList = container.querySelector("#studyGroupsList")
-  appState.studyGroups.forEach((group) => {
-    const groupCard = createElement("div", "card")
-    groupCard.innerHTML = `
+  // --- THIS PART IS UPDATED TO RENDER DATA FROM THE DATABASE ---
+  const groupsList = container.querySelector("#studyGroupsList");
+  if (appState.studyGroups.length === 0) {
+    groupsList.innerHTML = `<p>You haven't joined or created any study groups yet.</p>`;
+  } else {
+    appState.studyGroups.forEach((group) => {
+        const groupCard = createElement("div", "card");
+        groupCard.innerHTML = `
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
                 <div>
                     <h3 style="font-size: 1.25rem; font-weight: 600; color: var(--foreground); margin-bottom: 0.5rem;">${group.name}</h3>
                     <p style="color: var(--muted-foreground); margin-bottom: 0.5rem;">${group.description}</p>
                     <div style="display: flex; gap: 1rem; font-size: 0.875rem; color: var(--muted-foreground);">
-                        <span>👥 ${group.members} members</span>
-                        <span>📅 Next: ${new Date(group.nextSession).toLocaleDateString()}</span>
+                        <span>👥 ${group.members.length} members</span>
+                        <span>👤 Created by: ${group.createdBy.name}</span>
                     </div>
                 </div>
-                <div style="text-align: right;">
-                    <div style="font-size: 0.875rem; color: var(--muted-foreground); margin-bottom: 0.5rem;">Progress</div>
-                    <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary);">${group.progress}%</div>
-                </div>
             </div>
-            <div style="background: var(--muted); border-radius: var(--radius); height: 8px; margin-bottom: 1rem;">
-                <div style="background: var(--primary); height: 100%; border-radius: var(--radius); width: ${group.progress}%; transition: width 0.3s ease;"></div>
-            </div>
-        `
+        `;
+        groupCard.addEventListener("click", () => selectGroup(group));
+        groupsList.appendChild(groupCard);
+    });
+  }
+  // -------------------------------------------------------------
 
-    groupCard.addEventListener("click", () => selectGroup(group))
-    groupsList.appendChild(groupCard)
-  })
-
-  return container
+  return container;
 }
 
-function createGroupsPage() {
-  const container = createElement("div")
 
+// NOTE: The rest of the functions (createGroupsPage, createResourcesPage, etc.) still use static data.
+// We will update them in later steps as we build more API endpoints.
+
+function createGroupsPage() {
+  const container = createElement("div");
+  // This page will be updated later to fetch all available groups from the DB
   container.innerHTML = `
         <div class="page-header">
             <h1 class="page-title">Discover Groups</h1>
             <p class="page-subtitle">Find and join study groups that match your interests</p>
         </div>
-        
-        <div style="display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap;">
-            <input type="text" placeholder="Search groups..." class="form-input" style="flex: 1; min-width: 300px;">
-            <select class="form-input" style="width: 200px;">
-                <option>All Subjects</option>
-                <option>Mathematics</option>
-                <option>Computer Science</option>
-                <option>Chemistry</option>
-                <option>Physics</option>
-            </select>
-            <button class="btn btn-primary">🔍 Search</button>
-        </div>
-        
-        <div class="cards-grid" id="groupsList"></div>
-    `
-
-  // Render available groups
-  const groupsList = container.querySelector("#groupsList")
-  const availableGroups = [
-    ...appState.studyGroups,
-    {
-      id: 4,
-      name: "Physics Study Circle",
-      subject: "Physics",
-      members: 6,
-      description: "Quantum mechanics and thermodynamics",
-      nextSession: "2024-01-18 15:00",
-      progress: 30,
-    },
-    {
-      id: 5,
-      name: "Literature Discussion",
-      subject: "English",
-      members: 10,
-      description: "Modern American literature analysis",
-      nextSession: "2024-01-19 13:00",
-      progress: 55,
-    },
-  ]
-
-  availableGroups.forEach((group) => {
-    const groupCard = createElement("div", "card")
-    groupCard.innerHTML = `
-            <h3 style="font-size: 1.25rem; font-weight: 600; color: var(--foreground); margin-bottom: 0.5rem;">${group.name}</h3>
-            <div style="display: inline-block; background: var(--primary); color: var(--primary-foreground); padding: 0.25rem 0.75rem; border-radius: var(--radius); font-size: 0.75rem; font-weight: 600; margin-bottom: 1rem;">
-                ${group.subject}
-            </div>
-            <p style="color: var(--muted-foreground); margin-bottom: 1rem; line-height: 1.5;">${group.description}</p>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-                <div style="display: flex; gap: 1rem; font-size: 0.875rem; color: var(--muted-foreground);">
-                    <span>👥 ${group.members} members</span>
-                    <span>📅 ${new Date(group.nextSession).toLocaleDateString()}</span>
-                </div>
-            </div>
-            <button class="btn btn-primary" style="width: 100%;">Join Group</button>
-        `
-
-    groupCard.addEventListener("click", () => selectGroup(group))
-    groupsList.appendChild(groupCard)
-  })
-
-  return container
+        <p>This feature is coming soon!</p>
+    `;
+  return container;
 }
 
 function createResourcesPage() {
-  const container = createElement("div")
-
+  const container = createElement("div");
+  // This page will be updated later to fetch resources from the DB
   container.innerHTML = `
         <div class="page-header">
             <h1 class="page-title">Study Resources</h1>
             <p class="page-subtitle">Access shared materials and upload your own</p>
         </div>
-        
-        <div style="display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap;">
-            <input type="text" placeholder="Search resources..." class="form-input" style="flex: 1; min-width: 300px;">
-            <select class="form-input" style="width: 150px;">
-                <option>All Types</option>
-                <option>PDF</option>
-                <option>Video</option>
-                <option>Interactive</option>
-            </select>
-            <select class="form-input" style="width: 200px;">
-                <option>All Subjects</option>
-                <option>Mathematics</option>
-                <option>Computer Science</option>
-                <option>Chemistry</option>
-            </select>
-            <button class="btn btn-secondary">📤 Upload Resource</button>
-        </div>
-        
-        <div id="resourcesList"></div>
-    `
-
-  // Render resources
-  const resourcesList = container.querySelector("#resourcesList")
-  appState.resources.forEach((resource) => {
-    const resourceItem = createElement("div", "resource-item")
-    resourceItem.innerHTML = `
-            <div class="resource-info">
-                <h4>${resource.title}</h4>
-                <p>Type: ${resource.type} | Subject: ${resource.subject}</p>
-                <p style="font-size: 0.75rem; margin-top: 0.5rem;">
-                    Uploaded by ${resource.uploadedBy} on ${resource.uploadDate} | ${resource.downloads} downloads
-                </p>
-            </div>
-            <div style="display: flex; gap: 0.5rem;">
-                <button class="btn btn-outline" style="padding: 0.5rem 1rem;">👁️ View</button>
-                <button class="btn btn-primary" style="padding: 0.5rem 1rem;">⬇️ Download</button>
-            </div>
-        `
-    resourcesList.appendChild(resourceItem)
-  })
-
-  return container
+        <p>This feature is coming soon!</p>
+    `;
+  return container;
 }
 
 function createStudyGroupPage() {
-  const container = createElement("div")
-  const group = appState.selectedGroup
+  const container = createElement("div");
+  const group = appState.selectedGroup;
 
   if (!group) {
-    container.innerHTML = "<p>No group selected</p>"
-    return container
+    container.innerHTML = "<p>No group selected. Go back to the dashboard.</p>";
+    return container;
   }
 
   container.innerHTML = `
@@ -417,30 +293,28 @@ function createStudyGroupPage() {
         </div>
         
         <div id="tabContent"></div>
-    `
+    `;
 
-  // Add event listeners
   container.querySelector("#backBtn").addEventListener("click", () => {
-    navigateTo("dashboard")
-  })
+    navigateTo("dashboard");
+  });
 
-  const tabButtons = container.querySelectorAll("[data-tab]")
+  const tabButtons = container.querySelectorAll("[data-tab]");
   tabButtons.forEach((button) => {
     button.addEventListener("click", (e) => {
-      tabButtons.forEach((b) => b.classList.remove("active"))
-      e.target.classList.add("active")
-      renderTabContent(e.target.dataset.tab, container.querySelector("#tabContent"))
-    })
-  })
+      tabButtons.forEach((b) => b.classList.remove("active"));
+      e.target.classList.add("active");
+      renderTabContent(e.target.dataset.tab, container.querySelector("#tabContent"));
+    });
+  });
 
-  // Render initial tab content
-  renderTabContent("resources", container.querySelector("#tabContent"))
+  renderTabContent("resources", container.querySelector("#tabContent"));
 
-  return container
+  return container;
 }
 
 function renderTabContent(tab, container) {
-  clearContainer(container)
+  clearContainer(container);
 
   switch (tab) {
     case "resources":
@@ -448,111 +322,48 @@ function renderTabContent(tab, container) {
                 <div style="margin-bottom: 2rem;">
                     <button class="btn btn-primary">📤 Upload Resource</button>
                 </div>
-                <div id="groupResources"></div>
-            `
-
-      const groupResources = container.querySelector("#groupResources")
-      appState.resources.slice(0, 2).forEach((resource) => {
-        const resourceItem = createElement("div", "resource-item")
-        resourceItem.innerHTML = `
-                    <div class="resource-info">
-                        <h4>${resource.title}</h4>
-                        <p>Type: ${resource.type} | Uploaded by ${resource.uploadedBy}</p>
-                    </div>
-                    <div style="display: flex; gap: 0.5rem;">
-                        <button class="btn btn-outline" style="padding: 0.5rem 1rem;">👁️ View</button>
-                        <button class="btn btn-primary" style="padding: 0.5rem 1rem;">⬇️ Download</button>
-                    </div>
-                `
-        groupResources.appendChild(resourceItem)
-      })
-      break
-
+                <p>Resource feature for this group is coming soon!</p>
+            `;
+      break;
     case "chat":
       container.innerHTML = `
                 <div class="chat-container">
                     <div class="chat-messages" id="chatMessages">
-                        <div class="message other">
-                            <strong>Sarah Chen:</strong> Hey everyone! Ready for today's study session?
-                        </div>
-                        <div class="message user">
-                            <strong>You:</strong> Yes! I've prepared the practice problems.
-                        </div>
-                        <div class="message other">
-                            <strong>Mike Johnson:</strong> Great! Let's start with derivatives.
-                        </div>
+                        <div class="message other"><strong>Group Chat:</strong> This feature is coming soon!</div>
                     </div>
                     <div class="chat-input-container">
-                        <textarea class="chat-input" placeholder="Type your message..." id="chatInput"></textarea>
-                        <button class="btn btn-primary" id="sendBtn">Send</button>
+                        <textarea class="chat-input" placeholder="Type your message..." disabled></textarea>
+                        <button class="btn btn-primary" id="sendBtn" disabled>Send</button>
                     </div>
                 </div>
-            `
-
-      container.querySelector("#sendBtn").addEventListener("click", () => {
-        const input = container.querySelector("#chatInput")
-        if (input.value.trim()) {
-          const messagesContainer = container.querySelector("#chatMessages")
-          const message = createElement("div", "message user")
-          message.innerHTML = `<strong>You:</strong> ${input.value}`
-          messagesContainer.appendChild(message)
-          input.value = ""
-          messagesContainer.scrollTop = messagesContainer.scrollHeight
-        }
-      })
-      break
-
+            `;
+      break;
     case "ai":
       container.innerHTML = `
                 <div class="chat-container">
                     <div class="chat-messages" id="aiMessages">
                         <div class="message other">
-                            <strong>AI Assistant:</strong> Hello! I'm here to help with your studies. Ask me anything about ${appState.selectedGroup.subject}!
+                            <strong>AI Assistant:</strong> Hello! This feature is coming soon. I will be able to help with your studies on ${appState.selectedGroup.subject}.
                         </div>
                     </div>
                     <div class="chat-input-container">
-                        <textarea class="chat-input" placeholder="Ask the AI assistant..." id="aiInput"></textarea>
-                        <button class="btn btn-primary" id="aiSendBtn">Ask AI</button>
+                        <textarea class="chat-input" placeholder="Ask the AI assistant..." disabled></textarea>
+                        <button class="btn btn-primary" id="aiSendBtn" disabled>Ask AI</button>
                     </div>
                 </div>
-            `
-
-      container.querySelector("#aiSendBtn").addEventListener("click", () => {
-        const input = container.querySelector("#aiInput")
-        if (input.value.trim()) {
-          const messagesContainer = container.querySelector("#aiMessages")
-
-          // Add user message
-          const userMessage = createElement("div", "message user")
-          userMessage.innerHTML = `<strong>You:</strong> ${input.value}`
-          messagesContainer.appendChild(userMessage)
-
-          // Add AI response (simulated)
-          setTimeout(() => {
-            const aiMessage = createElement("div", "message other")
-            aiMessage.innerHTML = `<strong>AI Assistant:</strong> That's a great question! Let me help you understand that concept better...`
-            messagesContainer.appendChild(aiMessage)
-            messagesContainer.scrollTop = messagesContainer.scrollHeight
-          }, 1000)
-
-          input.value = ""
-          messagesContainer.scrollTop = messagesContainer.scrollHeight
-        }
-      })
-      break
+            `;
+      break;
   }
 }
 
-// --- UPDATED --- Main render function
+// Main render function
 function renderApp() {
   const app = document.getElementById("app");
   clearContainer(app);
 
   if (!appState.isAuthenticated) {
-    // If the user is not logged in, only show the login form.
     app.appendChild(createLoginForm());
   } else {
-    // If the user is logged in, show the full app layout.
     const appContainer = createElement("div", "app-container");
     appContainer.appendChild(createSidebar());
 
@@ -571,7 +382,6 @@ function renderApp() {
         mainContent.appendChild(createStudyGroupPage());
         break;
       default:
-        // Default to dashboard if a page isn't found
         mainContent.appendChild(createDashboard());
         break;
     }
