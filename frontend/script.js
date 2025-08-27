@@ -1,9 +1,12 @@
-// Application state
+// frontend/script.js (Updated for Firebase)
+
+// Application state (This will now be updated by firebase-auth.js)
 const appState = {
   currentPage: "login",
   selectedGroup: null,
   isAuthenticated: false,
   user: null,
+  // This static data will be replaced by API calls later
   studyGroups: [
     {
       id: 1,
@@ -76,32 +79,12 @@ function clearContainer(container) {
   container.innerHTML = ""
 }
 
-// Authentication functions
-function handleLogin(email, password) {
-  // Simple validation for demo
-  if (email && password) {
-    appState.isAuthenticated = true
-    appState.user = { name: "John Doe", email: email }
-    appState.currentPage = "dashboard"
-    renderApp()
-  }
-}
+// --- REMOVED --- handleLogin and handleSignup functions are no longer needed.
+// Firebase's onAuthStateChanged in firebase-auth.js now handles this.
 
-function handleSignup(name, email, password) {
-  // Simple validation for demo
-  if (name && email && password) {
-    appState.isAuthenticated = true
-    appState.user = { name: name, email: email }
-    appState.currentPage = "dashboard"
-    renderApp()
-  }
-}
-
+// --- UPDATED --- Authentication functions
 function handleLogout() {
-  appState.isAuthenticated = false
-  appState.user = null
-  appState.currentPage = "login"
-  renderApp()
+  signOut(); // This function is now defined in firebase-auth.js
 }
 
 // Navigation functions
@@ -116,101 +99,36 @@ function selectGroup(group) {
   renderApp()
 }
 
-// Component creation functions
+// --- REPLACED --- Component creation functions
 function createLoginForm() {
-  const container = createElement("div", "auth-container")
-  const form = createElement("div", "form-container")
+  const container = createElement("div", "auth-container");
+  const form = createElement("div", "form-container");
 
   form.innerHTML = `
         <div class="page-header" style="border: none; text-align: center;">
             <h1 class="page-title" style="color: var(--primary);">Study Hive</h1>
-            <p class="page-subtitle">Sign in to your account</p>
+            <p class="page-subtitle">Sign in to get started</p>
         </div>
-        <form id="loginForm">
-            <div class="form-group">
-                <label class="form-label" for="email">Email</label>
-                <input type="email" id="email" class="form-input" required>
-            </div>
-            <div class="form-group">
-                <label class="form-label" for="password">Password</label>
-                <input type="password" id="password" class="form-input" required>
-            </div>
-            <button type="submit" class="btn btn-primary" style="width: 100%; margin-bottom: 1rem;">
-                Sign In
-            </button>
-            <button type="button" id="switchToSignup" class="btn btn-outline" style="width: 100%;">
-                Create Account
-            </button>
-        </form>
-    `
+        <button type="button" id="googleSignInBtn" class="btn btn-primary" style="width: 100%; margin-bottom: 1rem;">
+            <img src="https://img.icons8.com/color/16/000000/google-logo.png" style="margin-right: 0.5rem;"/>
+            Sign In with Google
+        </button>
+        <p style="text-align: center; font-size: 0.8rem; color: var(--muted-foreground);">
+            More sign-in options are coming soon.
+        </p>
+    `;
 
-  container.appendChild(form)
+  container.appendChild(form);
 
-  // Add event listeners
-  form.querySelector("#loginForm").addEventListener("submit", (e) => {
-    e.preventDefault()
-    const email = form.querySelector("#email").value
-    const password = form.querySelector("#password").value
-    handleLogin(email, password)
-  })
+  // Add event listener for the new Google Sign-In button
+  form.querySelector("#googleSignInBtn").addEventListener("click", () => {
+    signInWithGoogle(); // This function is from firebase-auth.js
+  });
 
-  form.querySelector("#switchToSignup").addEventListener("click", () => {
-    appState.currentPage = "signup"
-    renderApp()
-  })
-
-  return container
+  return container;
 }
 
-function createSignupForm() {
-  const container = createElement("div", "auth-container")
-  const form = createElement("div", "form-container")
-
-  form.innerHTML = `
-        <div class="page-header" style="border: none; text-align: center;">
-            <h1 class="page-title" style="color: var(--primary);">Study Hive</h1>
-            <p class="page-subtitle">Create your account</p>
-        </div>
-        <form id="signupForm">
-            <div class="form-group">
-                <label class="form-label" for="name">Full Name</label>
-                <input type="text" id="name" class="form-input" required>
-            </div>
-            <div class="form-group">
-                <label class="form-label" for="email">Email</label>
-                <input type="email" id="email" class="form-input" required>
-            </div>
-            <div class="form-group">
-                <label class="form-label" for="password">Password</label>
-                <input type="password" id="password" class="form-input" required>
-            </div>
-            <button type="submit" class="btn btn-primary" style="width: 100%; margin-bottom: 1rem;">
-                Create Account
-            </button>
-            <button type="button" id="switchToLogin" class="btn btn-outline" style="width: 100%;">
-                Sign In Instead
-            </button>
-        </form>
-    `
-
-  container.appendChild(form)
-
-  // Add event listeners
-  form.querySelector("#signupForm").addEventListener("submit", (e) => {
-    e.preventDefault()
-    const name = form.querySelector("#name").value
-    const email = form.querySelector("#email").value
-    const password = form.querySelector("#password").value
-    handleSignup(name, email, password)
-  })
-
-  form.querySelector("#switchToLogin").addEventListener("click", () => {
-    appState.currentPage = "login"
-    renderApp()
-  })
-
-  return container
-}
+// --- REMOVED --- createSignupForm is no longer needed.
 
 function createSidebar() {
   const sidebar = createElement("div", "sidebar")
@@ -625,51 +543,45 @@ function renderTabContent(tab, container) {
   }
 }
 
-// Main render function
+// --- UPDATED --- Main render function
 function renderApp() {
-  const app = document.getElementById("app")
-  clearContainer(app)
+  const app = document.getElementById("app");
+  clearContainer(app);
 
   if (!appState.isAuthenticated) {
-    if (appState.currentPage === "signup") {
-      app.appendChild(createSignupForm())
-    } else {
-      app.appendChild(createLoginForm())
+    // If the user is not logged in, only show the login form.
+    app.appendChild(createLoginForm());
+  } else {
+    // If the user is logged in, show the full app layout.
+    const appContainer = createElement("div", "app-container");
+    appContainer.appendChild(createSidebar());
+
+    const mainContent = createElement("main", "main-content");
+    switch (appState.currentPage) {
+      case "dashboard":
+        mainContent.appendChild(createDashboard());
+        break;
+      case "groups":
+        mainContent.appendChild(createGroupsPage());
+        break;
+      case "resources":
+        mainContent.appendChild(createResourcesPage());
+        break;
+      case "study-group":
+        mainContent.appendChild(createStudyGroupPage());
+        break;
+      default:
+        // Default to dashboard if a page isn't found
+        mainContent.appendChild(createDashboard());
+        break;
     }
-    return
+    appContainer.appendChild(mainContent);
+    app.appendChild(appContainer);
   }
-
-  // Create main app container
-  const appContainer = createElement("div", "app-container")
-
-  // Add sidebar
-  appContainer.appendChild(createSidebar())
-
-  // Add main content
-  const mainContent = createElement("main", "main-content")
-
-  switch (appState.currentPage) {
-    case "dashboard":
-      mainContent.appendChild(createDashboard())
-      break
-    case "groups":
-      mainContent.appendChild(createGroupsPage())
-      break
-    case "resources":
-      mainContent.appendChild(createResourcesPage())
-      break
-    case "study-group":
-      mainContent.appendChild(createStudyGroupPage())
-      break
-    default:
-      mainContent.appendChild(createDashboard())
-  }
-
-  appContainer.appendChild(mainContent)
-  app.appendChild(appContainer)
 }
 
-// Initialize the app
+// Initialize the app when the DOM is loaded
+// Note: renderApp() is also called by onAuthStateChanged in firebase-auth.js
 document.addEventListener("DOMContentLoaded", () => {
-  renderApp()
-})
+  renderApp();
+});
