@@ -1,4 +1,4 @@
-// frontend/script.js (Final Updated Code for Step 10 - AI Chatbot)
+// frontend/script.js (Final Updated Code for AI Response Formatting)
 
 const appState = {
   currentPage: "login",
@@ -93,7 +93,7 @@ function closeModal() {
 }
 // ---------------------------------------------
 
-// --- NEW FUNCTION: To handle AI Chat submission ---
+// --- Function to handle AI Chat submission ---
 async function handleAiChatSubmit() {
     const input = document.getElementById('aiInput');
     const messagesContainer = document.getElementById('aiMessages');
@@ -101,20 +101,17 @@ async function handleAiChatSubmit() {
 
     if (!prompt) return;
 
-    // 1. User ka message UI me turant dikhao
     const userMessage = createElement("div", "message user");
     userMessage.innerHTML = `<strong>You:</strong> ${prompt}`;
     messagesContainer.appendChild(userMessage);
     input.value = "";
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
-    // 2. AI ka "thinking" message dikhao
     const thinkingMessage = createElement("div", "message other");
     thinkingMessage.innerHTML = `<strong>AI Assistant:</strong> Thinking...`;
     messagesContainer.appendChild(thinkingMessage);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
-    // 3. Backend se response laao
     const user = auth.currentUser;
     if (!user) {
         thinkingMessage.innerHTML = `<strong>AI Assistant:</strong> Error: You must be logged in.`;
@@ -138,8 +135,17 @@ async function handleAiChatSubmit() {
         }
 
         const data = await response.json();
-        // 4. "Thinking" message ko asli response se badal do
-        thinkingMessage.innerHTML = `<strong>AI Assistant:</strong> ${data.reply}`;
+        
+        // --- UPDATED THIS PART TO FORMAT THE RESPONSE ---
+        // 1. Convert Markdown text from AI into HTML using the marked.js library
+        const formattedHtml = marked.parse(data.reply);
+
+        // 2. Display the formatted HTML
+        thinkingMessage.innerHTML = `
+            <strong>AI Assistant:</strong>
+            <div class="markdown-content">${formattedHtml}</div>
+        `;
+        // ------------------------------------------------
 
     } catch (error) {
         console.error("AI Chat Error:", error);
@@ -401,7 +407,7 @@ function createStudyGroupPage() {
     <div class="tabs"><div class="tabs-list">
       <button class="active" data-tab="resources">📁 Resources</button>
       <button data-tab="chat">💬 Chat</button>
-      <button data-tab="ai">🤖 AI Assistant</button>
+      <button data-tab="ai">🤖 Mitrr </button>
     </div></div>
     <div id="tabContent"></div>
   `;
@@ -418,7 +424,6 @@ function createStudyGroupPage() {
   return container;
 }
 
-// --- UPDATED: renderTabContent to make AI tab functional ---
 function renderTabContent(tab, container) {
   clearContainer(container);
   switch (tab) {
@@ -433,28 +438,25 @@ function renderTabContent(tab, container) {
         <div class="chat-container">
             <div class="chat-messages" id="aiMessages">
                 <div class="message other">
-                    <strong>AI Assistant:</strong> Hello! I am powered by Google's Gemma model. Ask me anything about ${appState.selectedGroup.subject}!
+                    <strong>AI Assistant:</strong> Hello! I am Mitrr. Ask me anything about ${appState.selectedGroup.subject}!
                 </div>
             </div>
             <div class="chat-input-container">
-                <textarea class="chat-input" placeholder="Ask the AI assistant..." id="aiInput"></textarea>
-                <button class="btn btn-primary" id="aiSendBtn">Ask AI</button>
+                <textarea class="chat-input" placeholder="Ask Mitrr..." id="aiInput"></textarea>
+                <button class="btn btn-primary" id="aiSendBtn">Send</button>
             </div>
         </div>
       `;
-      // Add event listener to the new AI chat button
       document.getElementById('aiSendBtn').addEventListener('click', handleAiChatSubmit);
-      // Also handle 'Enter' key press
       document.getElementById('aiInput').addEventListener('keypress', function (e) {
           if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault(); // Prevent new line
+              e.preventDefault();
               handleAiChatSubmit();
           }
       });
       break;
   }
 }
-// ----------------------------------------------------
 
 // Main render function
 function renderApp() {

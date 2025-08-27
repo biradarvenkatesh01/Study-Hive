@@ -528,3 +528,40 @@ body {
 .card {
     position: relative; 
 }
+
+/* --- ADD THIS AT THE END OF style.css --- */
+/* Styles for Markdown content in chat */
+.message .markdown-content {
+  line-height: 1.6;
+}
+
+.message .markdown-content p {
+  margin-bottom: 0.5rem;
+}
+.message .markdown-content p:last-child {
+  margin-bottom: 0;
+}
+
+.message .markdown-content ul,
+.message .markdown-content ol {
+  margin-left: 1.5rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.message .markdown-content li {
+  margin-bottom: 0.25rem;
+}
+
+.message .markdown-content strong {
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.message .markdown-content code {
+  background-color: var(--muted);
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.875rem;
+}
