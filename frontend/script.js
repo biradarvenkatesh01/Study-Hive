@@ -1,4 +1,4 @@
-// frontend/script.js (Final Updated Code for Step 8)
+// frontend/script.js (Final Updated Code with "Delete" Button)
 
 const appState = {
   currentPage: "login",
@@ -6,7 +6,7 @@ const appState = {
   isAuthenticated: false,
   user: null,
   studyGroups: [],
-  discoverableGroups: [], // <-- ADDED: For groups on the discover page
+  discoverableGroups: [],
   resources: [],
 };
 
@@ -114,7 +114,6 @@ async function fetchStudyGroups() {
   }
 }
 
-// --- NEW FUNCTION: To fetch discoverable groups ---
 async function fetchDiscoverGroups() {
   const user = auth.currentUser;
   if (!user) return;
@@ -131,34 +130,52 @@ async function fetchDiscoverGroups() {
   }
 }
 
-// --- NEW FUNCTION: To join a group ---
 async function joinGroup(groupId) {
     const user = auth.currentUser;
-    if (!user) {
-        alert("You must be logged in to join a group.");
-        return;
-    }
+    if (!user) { alert("You must be logged in to join a group."); return; }
     try {
         const token = await user.getIdToken();
         const response = await fetch(`http://localhost:5001/api/groups/${groupId}/join`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${token}` }
         });
-
         if (!response.ok) {
             const errorData = await response.json();
             throw new Error(errorData.message || 'Failed to join group.');
         }
-
-        alert("Group joined successfully! You'll now see it on your dashboard.");
-        navigateTo('dashboard'); // Navigate to dashboard to see the new group
-
+        alert("Group joined successfully!");
+        navigateTo('dashboard');
     } catch (error) {
         console.error("Error joining group:", error);
         alert(`Could not join group: ${error.message}`);
     }
 }
-// ----------------------------------------------------
+
+async function deleteGroup(groupId) {
+    if (!confirm("Are you sure you want to permanently delete this group?")) {
+        return;
+    }
+    const user = auth.currentUser;
+    if (!user) { alert("You must be logged in to delete a group."); return; }
+    try {
+        const token = await user.getIdToken();
+        const response = await fetch(`http://localhost:5001/api/groups/${groupId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Failed to delete group.');
+        }
+        
+        appState.studyGroups = appState.studyGroups.filter(group => group._id !== groupId);
+        renderApp();
+        
+    } catch (error) {
+        console.error("Error deleting group:", error);
+        alert(`Could not delete group: ${error.message}`);
+    }
+}
 
 // Navigation functions
 function navigateTo(page) {
@@ -238,8 +255,16 @@ function createDashboard() {
   } else {
     appState.studyGroups.forEach(group => {
       const groupCard = createElement("div", "card");
+      
+      // --- UPDATED: Changed the delete button from '×' to a proper button ---
+      let deleteButtonHTML = '';
+      if (appState.user && group.createdBy && group.createdBy._id === appState.user.mongoId) {
+          deleteButtonHTML = `<button class="delete-group-btn" data-group-id="${group._id}">Delete</button>`;
+      }
+
       groupCard.innerHTML = `
-        <div>
+        ${deleteButtonHTML}
+        <div class="group-card-content" style="padding-top: ${deleteButtonHTML ? '1.5rem' : '0'};">
           <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem;">${group.name}</h3>
           <p style="color: var(--muted-foreground); margin-bottom: 1rem;">${group.description}</p>
           <div style="display: flex; gap: 1rem; font-size: 0.875rem; color: var(--muted-foreground);">
@@ -248,15 +273,25 @@ function createDashboard() {
           </div>
         </div>
       `;
-      groupCard.addEventListener("click", () => selectGroup(group));
+      // --------------------------------------------------------------------------
+      
+      groupCard.querySelector('.group-card-content').addEventListener("click", () => selectGroup(group));
       groupsList.appendChild(groupCard);
     });
   }
+
+  container.querySelectorAll('.delete-group-btn').forEach(button => {
+    button.addEventListener('click', (e) => {
+        e.stopPropagation(); 
+        const groupId = e.target.dataset.groupId;
+        deleteGroup(groupId);
+    });
+  });
+
   container.querySelector('#createGroupBtn').addEventListener('click', openModal);
   return container;
 }
 
-// --- REPLACED: Placeholder createGroupsPage with a functional one ---
 function createGroupsPage() {
   const container = createElement("div");
   container.innerHTML = `
@@ -267,7 +302,6 @@ function createGroupsPage() {
     <div class="cards-grid" id="discoverGroupsList"><p>Loading groups...</p></div>
   `;
 
-  // Fetch groups and then render them
   fetchDiscoverGroups().then(() => {
     const groupsList = container.querySelector("#discoverGroupsList");
     clearContainer(groupsList);
@@ -279,7 +313,6 @@ function createGroupsPage() {
 
     appState.discoverableGroups.forEach(group => {
       const groupCard = createElement("div", "card");
-      // Remove cursor:pointer and click event from the main card
       groupCard.style.cursor = 'default'; 
       groupCard.innerHTML = `
         <div>
@@ -296,7 +329,6 @@ function createGroupsPage() {
       groupsList.appendChild(groupCard);
     });
 
-    // Add event listeners to all join buttons
     container.querySelectorAll('.join-group-btn').forEach(button => {
         button.addEventListener('click', (e) => {
             const groupId = e.target.dataset.groupId;
@@ -307,7 +339,6 @@ function createGroupsPage() {
 
   return container;
 }
-// --------------------------------------------------------------------
 
 function createResourcesPage() {
   const container = createElement("div");

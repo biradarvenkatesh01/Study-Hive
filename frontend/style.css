@@ -502,3 +502,29 @@ body {
   cursor: pointer;
   color: var(--muted-foreground);
 }
+
+/* --- REPLACE the old .delete-group-btn style with this --- */
+
+.delete-group-btn {
+  background-color: #fee2e2; /* Light red background */
+  color: #b91c1c; /* Dark red text */
+  border: none;
+  font-size: 0.75rem; /* Chota font size */
+  font-weight: 600;
+  padding: 0.3rem 0.6rem; /* Choti padding */
+  border-radius: var(--radius); /* Same radius as other elements */
+  cursor: pointer;
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  transition: all 0.2s ease;
+}
+
+.delete-group-btn:hover {
+  background-color: #ef4444; /* Darker red on hover */
+  color: #ffffff; /* White text on hover */
+}
+
+.card {
+    position: relative; 
+}
