@@ -10,6 +10,10 @@ backend/.env
 # Firebase Admin SDK ki secret key file ko ignore karo
 backend/config/serviceAccountKey.json
 
+# ## Temporary Test Files ##
+# Backend me banayi gayi test files ko ignore karo
+backend/test-hf-api.js
+
 # ## Operating System files ##
 .DS_Store
 .DS_Store?
