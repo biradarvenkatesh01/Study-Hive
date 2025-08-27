@@ -1,4 +1,3 @@
-
 // Application state
 const appState = {
   currentPage: "login",
