@@ -1,4 +1,4 @@
-// frontend/script.js (Final Updated Code for AI Response Formatting)
+// frontend/script.js (Final Version with Chat History Persistence)
 
 const appState = {
   currentPage: "login",
@@ -8,6 +8,8 @@ const appState = {
   studyGroups: [],
   discoverableGroups: [],
   resources: [],
+  // --- ADDED: To store chat history for each group ---
+  chatHistories: {}, // Example: { "groupId1": [ {sender, content}, ... ], "groupId2": [ ... ] }
 };
 
 // Utility functions
@@ -98,12 +100,17 @@ async function handleAiChatSubmit() {
     const input = document.getElementById('aiInput');
     const messagesContainer = document.getElementById('aiMessages');
     const prompt = input.value.trim();
+    const groupId = appState.selectedGroup._id;
 
     if (!prompt) return;
 
+    const userMessageHTML = `<strong>You:</strong> ${prompt}`;
     const userMessage = createElement("div", "message user");
-    userMessage.innerHTML = `<strong>You:</strong> ${prompt}`;
+    userMessage.innerHTML = userMessageHTML;
     messagesContainer.appendChild(userMessage);
+    // --- ADDED: Save user message to history ---
+    appState.chatHistories[groupId].push({ sender: 'user', content: userMessageHTML });
+    
     input.value = "";
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
@@ -122,34 +129,26 @@ async function handleAiChatSubmit() {
         const token = await user.getIdToken();
         const response = await fetch('http://localhost:5001/api/ai/chat', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-            },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({ prompt }),
         });
-
         if (!response.ok) {
             const errorData = await response.json();
             throw new Error(errorData.message || 'Failed to get response from AI.');
         }
-
         const data = await response.json();
-        
-        // --- UPDATED THIS PART TO FORMAT THE RESPONSE ---
-        // 1. Convert Markdown text from AI into HTML using the marked.js library
         const formattedHtml = marked.parse(data.reply);
-
-        // 2. Display the formatted HTML
-        thinkingMessage.innerHTML = `
-            <strong>AI Assistant:</strong>
-            <div class="markdown-content">${formattedHtml}</div>
-        `;
-        // ------------------------------------------------
+        const aiMessageHTML = `<strong>AI Assistant:</strong><div class="markdown-content">${formattedHtml}</div>`;
+        thinkingMessage.innerHTML = aiMessageHTML;
+        // --- ADDED: Save AI response to history ---
+        appState.chatHistories[groupId].push({ sender: 'ai', content: aiMessageHTML });
 
     } catch (error) {
         console.error("AI Chat Error:", error);
-        thinkingMessage.innerHTML = `<strong>AI Assistant:</strong> Sorry, I encountered an error. ${error.message}`;
+        const errorMessageHTML = `<strong>AI Assistant:</strong> Sorry, I encountered an error. ${error.message}`;
+        thinkingMessage.innerHTML = errorMessageHTML;
+        // --- ADDED: Save error message to history ---
+        appState.chatHistories[groupId].push({ sender: 'ai', content: errorMessageHTML });
     } finally {
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
@@ -407,7 +406,7 @@ function createStudyGroupPage() {
     <div class="tabs"><div class="tabs-list">
       <button class="active" data-tab="resources">📁 Resources</button>
       <button data-tab="chat">💬 Chat</button>
-      <button data-tab="ai">🤖 Mitrr </button>
+      <button data-tab="ai">🤖 AI Assistant</button>
     </div></div>
     <div id="tabContent"></div>
   `;
@@ -424,6 +423,7 @@ function createStudyGroupPage() {
   return container;
 }
 
+// --- UPDATED: renderTabContent to save and render chat history ---
 function renderTabContent(tab, container) {
   clearContainer(container);
   switch (tab) {
@@ -434,19 +434,36 @@ function renderTabContent(tab, container) {
       container.innerHTML = `<div class="chat-container"><div class="chat-messages"><div class="message other"><strong>Group Chat:</strong> Coming soon!</div></div><div class="chat-input-container"><textarea class="chat-input" disabled></textarea><button class="btn btn-primary" disabled>Send</button></div></div>`;
       break;
     case "ai":
+      const groupId = appState.selectedGroup._id;
+      // 1. Check if history exists for this group. If not, create it.
+      if (!appState.chatHistories[groupId]) {
+        const welcomeMessageHTML = `<strong>AI Assistant:</strong> Hello! Ask me anything about ${appState.selectedGroup.subject}!`;
+        appState.chatHistories[groupId] = [
+            { sender: 'ai', content: welcomeMessageHTML }
+        ];
+      }
+
       container.innerHTML = `
         <div class="chat-container">
             <div class="chat-messages" id="aiMessages">
-                <div class="message other">
-                    <strong>AI Assistant:</strong> Hello! I am Mitrr. Ask me anything about ${appState.selectedGroup.subject}!
                 </div>
-            </div>
             <div class="chat-input-container">
-                <textarea class="chat-input" placeholder="Ask Mitrr..." id="aiInput"></textarea>
-                <button class="btn btn-primary" id="aiSendBtn">Send</button>
+                <textarea class="chat-input" placeholder="Ask the AI assistant..." id="aiInput"></textarea>
+                <button class="btn btn-primary" id="aiSendBtn">Ask AI</button>
             </div>
         </div>
       `;
+
+      // 2. Render all messages from history
+      const messagesContainer = container.querySelector('#aiMessages');
+      appState.chatHistories[groupId].forEach(message => {
+          const messageEl = createElement("div", `message ${message.sender === 'user' ? 'user' : 'other'}`);
+          messageEl.innerHTML = message.content;
+          messagesContainer.appendChild(messageEl);
+      });
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+      // 3. Add event listeners
       document.getElementById('aiSendBtn').addEventListener('click', handleAiChatSubmit);
       document.getElementById('aiInput').addEventListener('keypress', function (e) {
           if (e.key === 'Enter' && !e.shiftKey) {
@@ -457,6 +474,7 @@ function renderTabContent(tab, container) {
       break;
   }
 }
+// ----------------------------------------------------
 
 // Main render function
 function renderApp() {
