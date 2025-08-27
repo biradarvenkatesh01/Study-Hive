@@ -1,4 +1,4 @@
-// frontend/script.js (Final Updated Code with "Delete" Button)
+// frontend/script.js (Final Updated Code for Step 10 - AI Chatbot)
 
 const appState = {
   currentPage: "login",
@@ -93,6 +93,63 @@ function closeModal() {
 }
 // ---------------------------------------------
 
+// --- NEW FUNCTION: To handle AI Chat submission ---
+async function handleAiChatSubmit() {
+    const input = document.getElementById('aiInput');
+    const messagesContainer = document.getElementById('aiMessages');
+    const prompt = input.value.trim();
+
+    if (!prompt) return;
+
+    // 1. User ka message UI me turant dikhao
+    const userMessage = createElement("div", "message user");
+    userMessage.innerHTML = `<strong>You:</strong> ${prompt}`;
+    messagesContainer.appendChild(userMessage);
+    input.value = "";
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+    // 2. AI ka "thinking" message dikhao
+    const thinkingMessage = createElement("div", "message other");
+    thinkingMessage.innerHTML = `<strong>AI Assistant:</strong> Thinking...`;
+    messagesContainer.appendChild(thinkingMessage);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+    // 3. Backend se response laao
+    const user = auth.currentUser;
+    if (!user) {
+        thinkingMessage.innerHTML = `<strong>AI Assistant:</strong> Error: You must be logged in.`;
+        return;
+    }
+
+    try {
+        const token = await user.getIdToken();
+        const response = await fetch('http://localhost:5001/api/ai/chat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({ prompt }),
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Failed to get response from AI.');
+        }
+
+        const data = await response.json();
+        // 4. "Thinking" message ko asli response se badal do
+        thinkingMessage.innerHTML = `<strong>AI Assistant:</strong> ${data.reply}`;
+
+    } catch (error) {
+        console.error("AI Chat Error:", error);
+        thinkingMessage.innerHTML = `<strong>AI Assistant:</strong> Sorry, I encountered an error. ${error.message}`;
+    } finally {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+}
+// ----------------------------------------------------
+
 // Authentication and Data Fetching functions
 function handleLogout() {
   signOut();
@@ -152,9 +209,7 @@ async function joinGroup(groupId) {
 }
 
 async function deleteGroup(groupId) {
-    if (!confirm("Are you sure you want to permanently delete this group?")) {
-        return;
-    }
+    if (!confirm("Are you sure you want to permanently delete this group?")) { return; }
     const user = auth.currentUser;
     if (!user) { alert("You must be logged in to delete a group."); return; }
     try {
@@ -167,10 +222,8 @@ async function deleteGroup(groupId) {
             const errorData = await response.json();
             throw new Error(errorData.message || 'Failed to delete group.');
         }
-        
         appState.studyGroups = appState.studyGroups.filter(group => group._id !== groupId);
         renderApp();
-        
     } catch (error) {
         console.error("Error deleting group:", error);
         alert(`Could not delete group: ${error.message}`);
@@ -255,13 +308,10 @@ function createDashboard() {
   } else {
     appState.studyGroups.forEach(group => {
       const groupCard = createElement("div", "card");
-      
-      // --- UPDATED: Changed the delete button from '×' to a proper button ---
       let deleteButtonHTML = '';
       if (appState.user && group.createdBy && group.createdBy._id === appState.user.mongoId) {
           deleteButtonHTML = `<button class="delete-group-btn" data-group-id="${group._id}">Delete</button>`;
       }
-
       groupCard.innerHTML = `
         ${deleteButtonHTML}
         <div class="group-card-content" style="padding-top: ${deleteButtonHTML ? '1.5rem' : '0'};">
@@ -273,13 +323,10 @@ function createDashboard() {
           </div>
         </div>
       `;
-      // --------------------------------------------------------------------------
-      
       groupCard.querySelector('.group-card-content').addEventListener("click", () => selectGroup(group));
       groupsList.appendChild(groupCard);
     });
   }
-
   container.querySelectorAll('.delete-group-btn').forEach(button => {
     button.addEventListener('click', (e) => {
         e.stopPropagation(); 
@@ -287,7 +334,6 @@ function createDashboard() {
         deleteGroup(groupId);
     });
   });
-
   container.querySelector('#createGroupBtn').addEventListener('click', openModal);
   return container;
 }
@@ -301,16 +347,13 @@ function createGroupsPage() {
     </div>
     <div class="cards-grid" id="discoverGroupsList"><p>Loading groups...</p></div>
   `;
-
   fetchDiscoverGroups().then(() => {
     const groupsList = container.querySelector("#discoverGroupsList");
     clearContainer(groupsList);
-
     if (appState.discoverableGroups.length === 0) {
         groupsList.innerHTML = `<p>No new groups to discover right now. Why not create one?</p>`;
         return;
     }
-
     appState.discoverableGroups.forEach(group => {
       const groupCard = createElement("div", "card");
       groupCard.style.cursor = 'default'; 
@@ -319,16 +362,13 @@ function createGroupsPage() {
             <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem;">${group.name}</h3>
             <p style="color: var(--muted-foreground); margin-bottom: 1.5rem;">${group.description}</p>
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div style="font-size: 0.875rem; color: var(--muted-foreground);">
-                    <span>👥 ${group.members.length} members</span>
-                </div>
+                <div style="font-size: 0.875rem; color: var(--muted-foreground);"><span>👥 ${group.members.length} members</span></div>
                 <button class="btn btn-secondary join-group-btn" data-group-id="${group._id}">Join Group</button>
             </div>
         </div>
       `;
       groupsList.appendChild(groupCard);
     });
-
     container.querySelectorAll('.join-group-btn').forEach(button => {
         button.addEventListener('click', (e) => {
             const groupId = e.target.dataset.groupId;
@@ -336,19 +376,12 @@ function createGroupsPage() {
         });
     });
   });
-
   return container;
 }
 
 function createResourcesPage() {
   const container = createElement("div");
-  container.innerHTML = `
-    <div class="page-header">
-      <h1 class="page-title">Study Resources</h1>
-      <p class="page-subtitle">Access shared materials and upload your own</p>
-    </div>
-    <p>This feature is coming soon!</p>
-  `;
+  container.innerHTML = `<div class="page-header"><h1 class="page-title">Study Resources</h1><p class="page-subtitle">Access shared materials</p></div><p>This feature is coming soon!</p>`;
   return container;
 }
 
@@ -385,6 +418,7 @@ function createStudyGroupPage() {
   return container;
 }
 
+// --- UPDATED: renderTabContent to make AI tab functional ---
 function renderTabContent(tab, container) {
   clearContainer(container);
   switch (tab) {
@@ -395,10 +429,32 @@ function renderTabContent(tab, container) {
       container.innerHTML = `<div class="chat-container"><div class="chat-messages"><div class="message other"><strong>Group Chat:</strong> Coming soon!</div></div><div class="chat-input-container"><textarea class="chat-input" disabled></textarea><button class="btn btn-primary" disabled>Send</button></div></div>`;
       break;
     case "ai":
-      container.innerHTML = `<div class="chat-container"><div class="chat-messages"><div class="message other"><strong>AI Assistant:</strong> Coming soon!</div></div><div class="chat-input-container"><textarea class="chat-input" disabled></textarea><button class="btn btn-primary" disabled>Ask AI</button></div></div>`;
+      container.innerHTML = `
+        <div class="chat-container">
+            <div class="chat-messages" id="aiMessages">
+                <div class="message other">
+                    <strong>AI Assistant:</strong> Hello! I am powered by Google's Gemma model. Ask me anything about ${appState.selectedGroup.subject}!
+                </div>
+            </div>
+            <div class="chat-input-container">
+                <textarea class="chat-input" placeholder="Ask the AI assistant..." id="aiInput"></textarea>
+                <button class="btn btn-primary" id="aiSendBtn">Ask AI</button>
+            </div>
+        </div>
+      `;
+      // Add event listener to the new AI chat button
+      document.getElementById('aiSendBtn').addEventListener('click', handleAiChatSubmit);
+      // Also handle 'Enter' key press
+      document.getElementById('aiInput').addEventListener('keypress', function (e) {
+          if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault(); // Prevent new line
+              handleAiChatSubmit();
+          }
+      });
       break;
   }
 }
+// ----------------------------------------------------
 
 // Main render function
 function renderApp() {

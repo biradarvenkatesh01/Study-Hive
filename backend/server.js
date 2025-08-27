@@ -34,6 +34,11 @@ app.use('/api/auth', require('./routes/authRoutes'));
 // --- ADD THIS LINE TO REGISTER THE STUDY GROUP ROUTE ---
 app.use('/api/groups', require('./routes/studyGroupRoutes'));
 
+// ... (app.use('/api/groups', ...) ke baad)
+
+// --- ADD THIS LINE TO REGISTER THE AI ROUTE ---
+app.use('/api/ai', require('./routes/aiRoutes.js'));
+
 // ... (PORT definition se pehle)
 const PORT = process.env.PORT || 5000;
 
