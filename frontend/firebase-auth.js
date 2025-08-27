@@ -38,53 +38,59 @@ const signOut = async () => {
 };
 
 // Function to send the token to our backend and fetch initial data
+// frontend/firebase-auth.js
+
+// --- REPLACE the old verifyUserWithBackend function with this ---
 const verifyUserWithBackend = async (user) => {
-    if (!user) return;
+    if (!user) {
+      renderApp(); // Render login page if no user
+      return;
+    };
 
     try {
-        // Get the Firebase ID token from the user
         const token = await user.getIdToken();
-
-        // Send the token to our backend API to verify/create user in DB
         const response = await fetch('http://localhost:5001/api/auth/google-signin', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ token: token }),
         });
 
-        if (!response.ok) {
-            throw new Error('Backend verification failed.');
-        }
+        if (!response.ok) throw new Error('Backend verification failed.');
 
-        // Get user data from our backend (which comes from our MongoDB)
         const backendUser = await response.json();
-        console.log("User verified with backend, data from MongoDB:", backendUser);
         
-        // Update the global app state with data from OUR database
         appState.isAuthenticated = true;
         appState.user = {
             name: backendUser.name,
             email: backendUser.email,
-            uid: backendUser.firebaseUid, // Using firebaseUid from our DB
-            mongoId: backendUser._id // Storing MongoDB's unique ID
+            uid: backendUser.firebaseUid,
+            mongoId: backendUser._id
         };
 
-        // --- THIS IS THE UPDATED PART ---
-        // After user is verified, fetch their study groups
-        await fetchStudyGroups(); // This function is in script.js
-        // ------------------------------
+        // User verify hone ke baad, unke study groups fetch karo
+        await fetchStudyGroups();
+        // Finally, render the app with all the user data and their groups
+        renderApp();
 
     } catch (error) {
         console.error("Error verifying user with backend:", error);
-        // If backend verification fails, sign the user out from Firebase as well
-        signOut();
-    } finally {
-        // Finally, after all data is fetched, re-render the app
-        renderApp();
+        signOut(); // If verification fails, sign out completely
     }
 };
+
+// ... (rest of the firebase-auth.js file remains the same) ...
+
+// Listen for authentication state changes
+auth.onAuthStateChanged(user => {
+  if (user) {
+    verifyUserWithBackend(user);
+  } else {
+    appState.isAuthenticated = false;
+    appState.user = null;
+    appState.currentPage = "login";
+    renderApp();
+  }
+});
 
 
 // Listen for authentication state changes
