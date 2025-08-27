@@ -1,4 +1,4 @@
-// frontend/script.js (Final Version with Chat History Persistence)
+// frontend/script.js (Final Updated Code for Mobile-Friendly UI)
 
 const appState = {
   currentPage: "login",
@@ -8,8 +8,7 @@ const appState = {
   studyGroups: [],
   discoverableGroups: [],
   resources: [],
-  // --- ADDED: To store chat history for each group ---
-  chatHistories: {}, // Example: { "groupId1": [ {sender, content}, ... ], "groupId2": [ ... ] }
+  chatHistories: {},
 };
 
 // Utility functions
@@ -101,14 +100,12 @@ async function handleAiChatSubmit() {
     const messagesContainer = document.getElementById('aiMessages');
     const prompt = input.value.trim();
     const groupId = appState.selectedGroup._id;
-
     if (!prompt) return;
 
     const userMessageHTML = `<strong>You:</strong> ${prompt}`;
     const userMessage = createElement("div", "message user");
     userMessage.innerHTML = userMessageHTML;
     messagesContainer.appendChild(userMessage);
-    // --- ADDED: Save user message to history ---
     appState.chatHistories[groupId].push({ sender: 'user', content: userMessageHTML });
     
     input.value = "";
@@ -124,7 +121,6 @@ async function handleAiChatSubmit() {
         thinkingMessage.innerHTML = `<strong>AI Assistant:</strong> Error: You must be logged in.`;
         return;
     }
-
     try {
         const token = await user.getIdToken();
         const response = await fetch('http://localhost:5001/api/ai/chat', {
@@ -140,20 +136,17 @@ async function handleAiChatSubmit() {
         const formattedHtml = marked.parse(data.reply);
         const aiMessageHTML = `<strong>AI Assistant:</strong><div class="markdown-content">${formattedHtml}</div>`;
         thinkingMessage.innerHTML = aiMessageHTML;
-        // --- ADDED: Save AI response to history ---
         appState.chatHistories[groupId].push({ sender: 'ai', content: aiMessageHTML });
 
     } catch (error) {
         console.error("AI Chat Error:", error);
         const errorMessageHTML = `<strong>AI Assistant:</strong> Sorry, I encountered an error. ${error.message}`;
         thinkingMessage.innerHTML = errorMessageHTML;
-        // --- ADDED: Save error message to history ---
         appState.chatHistories[groupId].push({ sender: 'ai', content: errorMessageHTML });
     } finally {
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
 }
-// ----------------------------------------------------
 
 // Authentication and Data Fetching functions
 function handleLogout() {
@@ -247,6 +240,18 @@ function selectGroup(group) {
   renderApp();
 }
 
+// --- NEW Sidebar control functions ---
+function openSidebar() {
+    document.getElementById('sidebar')?.classList.add('active');
+    document.getElementById('overlay')?.classList.add('active');
+}
+
+function closeSidebar() {
+    document.getElementById('sidebar')?.classList.remove('active');
+    document.getElementById('overlay')?.classList.remove('active');
+}
+// ------------------------------------
+
 // Component creation functions
 function createLoginForm() {
   const container = createElement("div", "auth-container");
@@ -266,29 +271,58 @@ function createLoginForm() {
   return container;
 }
 
+// --- REPLACED: createSidebar with new responsive version ---
 function createSidebar() {
   const sidebar = createElement("div", "sidebar");
+  sidebar.id = 'sidebar';
+
+  const userInitial = appState.user?.name ? appState.user.name.charAt(0).toUpperCase() : 'U';
+
   sidebar.innerHTML = `
-    <div class="sidebar-logo">📚 Study Hive</div>
+    <div class="sidebar-logo">
+        📚 Study Hive
+    </div>
+    
+    <div class="sidebar-user-info">
+        <div class="user-avatar">${userInitial}</div>
+        <div class="user-name">${appState.user?.name || "User"}</div>
+        <div class="user-email">${appState.user?.email || "user@example.com"}</div>
+    </div>
+
     <nav class="sidebar-nav">
-      <li><a href="#" data-page="dashboard" class="${appState.currentPage === 'dashboard' ? 'active' : ''}">📊 Dashboard</a></li>
-      <li><a href="#" data-page="groups" class="${appState.currentPage === 'groups' ? 'active' : ''}">👥 Groups</a></li>
-      <li><a href="#" data-page="resources" class="${appState.currentPage === 'resources' ? 'active' : ''}">📁 Resources</a></li>
-      <li style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--sidebar-border);">
-        <div style="padding: 1rem; background: var(--muted); border-radius: var(--radius); margin-bottom: 1rem;">
-          <div style="font-weight: 600; color: var(--foreground); margin-bottom: 0.25rem;">${appState.user?.name || "User"}</div>
-          <div style="font-size: 0.875rem; color: var(--muted-foreground);">${appState.user?.email || "user@example.com"}</div>
-        </div>
-        <a href="#" id="logoutBtn" style="color: var(--destructive);">🚪 Logout</a>
-      </li>
+        <li><a href="#" data-page="dashboard">📊 Dashboard</a></li>
+        <li><a href="#" data-page="groups">👥 Groups</a></li>
+        <li><a href="#" data-page="resources">📁 Resources</a></li>
+        <li style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+            <a href="#" id="logoutBtn" style="color: var(--destructive);">🚪 Logout</a>
+        </li>
     </nav>
   `;
+  
+  const activeLink = sidebar.querySelector(`[data-page="${appState.currentPage}"]`);
+  if (activeLink) {
+    activeLink.classList.add('active');
+  }
+
   sidebar.querySelectorAll("[data-page]").forEach(link => {
-    link.addEventListener("click", (e) => { e.preventDefault(); navigateTo(e.target.dataset.page); });
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      closeSidebar();
+      // Use the href attribute to get the page name, safer than dataset on parent
+      const page = e.currentTarget.getAttribute('data-page');
+      navigateTo(page);
+    });
   });
-  sidebar.querySelector("#logoutBtn").addEventListener("click", (e) => { e.preventDefault(); handleLogout(); });
+
+  sidebar.querySelector("#logoutBtn").addEventListener("click", (e) => {
+    e.preventDefault();
+    closeSidebar();
+    handleLogout();
+  });
+
   return sidebar;
 }
+// -----------------------------------------------------------
 
 function createDashboard() {
   const container = createElement("div");
@@ -406,7 +440,7 @@ function createStudyGroupPage() {
     <div class="tabs"><div class="tabs-list">
       <button class="active" data-tab="resources">📁 Resources</button>
       <button data-tab="chat">💬 Chat</button>
-      <button data-tab="ai">🤖 AI Assistant</button>
+      <button data-tab="ai">🤖 Mitrr</button>
     </div></div>
     <div id="tabContent"></div>
   `;
@@ -423,7 +457,6 @@ function createStudyGroupPage() {
   return container;
 }
 
-// --- UPDATED: renderTabContent to save and render chat history ---
 function renderTabContent(tab, container) {
   clearContainer(container);
   switch (tab) {
@@ -435,26 +468,21 @@ function renderTabContent(tab, container) {
       break;
     case "ai":
       const groupId = appState.selectedGroup._id;
-      // 1. Check if history exists for this group. If not, create it.
       if (!appState.chatHistories[groupId]) {
-        const welcomeMessageHTML = `<strong>AI Assistant:</strong> Hello! Ask me anything about ${appState.selectedGroup.subject}!`;
+        const welcomeMessageHTML = `<strong>Mitrr:</strong> Hello I am Mitrr! Ask me anything about ${appState.selectedGroup.subject}!`;
         appState.chatHistories[groupId] = [
             { sender: 'ai', content: welcomeMessageHTML }
         ];
       }
-
       container.innerHTML = `
         <div class="chat-container">
-            <div class="chat-messages" id="aiMessages">
-                </div>
+            <div class="chat-messages" id="aiMessages"></div>
             <div class="chat-input-container">
-                <textarea class="chat-input" placeholder="Ask the AI assistant..." id="aiInput"></textarea>
-                <button class="btn btn-primary" id="aiSendBtn">Ask AI</button>
+                <textarea class="chat-input" placeholder="Ask Mitrr..." id="aiInput"></textarea>
+                <button class="btn btn-primary" id="aiSendBtn">Send</button>
             </div>
         </div>
       `;
-
-      // 2. Render all messages from history
       const messagesContainer = container.querySelector('#aiMessages');
       appState.chatHistories[groupId].forEach(message => {
           const messageEl = createElement("div", `message ${message.sender === 'user' ? 'user' : 'other'}`);
@@ -462,8 +490,6 @@ function renderTabContent(tab, container) {
           messagesContainer.appendChild(messageEl);
       });
       messagesContainer.scrollTop = messagesContainer.scrollHeight;
-
-      // 3. Add event listeners
       document.getElementById('aiSendBtn').addEventListener('click', handleAiChatSubmit);
       document.getElementById('aiInput').addEventListener('keypress', function (e) {
           if (e.key === 'Enter' && !e.shiftKey) {
@@ -474,17 +500,35 @@ function renderTabContent(tab, container) {
       break;
   }
 }
-// ----------------------------------------------------
 
-// Main render function
+// --- REPLACED: renderApp with new responsive version ---
 function renderApp() {
   const app = document.getElementById("app");
   clearContainer(app);
+
   if (!appState.isAuthenticated) {
     app.appendChild(createLoginForm());
   } else {
+    // Authenticated state
     const appContainer = createElement("div", "app-container");
+    
+    // Mobile Header
+    const mobileHeader = createElement("header", "mobile-header");
+    mobileHeader.innerHTML = `
+        <button class="hamburger-menu" id="hamburgerMenu">☰</button>
+        <div class="header-logo">Study Hive</div>
+    `;
+    appContainer.appendChild(mobileHeader);
+
+    // Sidebar
     appContainer.appendChild(createSidebar());
+
+    // Overlay
+    const overlay = createElement("div", "overlay");
+    overlay.id = 'overlay';
+    appContainer.appendChild(overlay);
+
+    // Main Content
     const mainContent = createElement("main", "main-content");
     switch (appState.currentPage) {
       case "dashboard": mainContent.appendChild(createDashboard()); break;
@@ -494,9 +538,15 @@ function renderApp() {
       default: mainContent.appendChild(createDashboard()); break;
     }
     appContainer.appendChild(mainContent);
+
     app.appendChild(appContainer);
+
+    // Add event listeners after elements are in the DOM
+    document.getElementById('hamburgerMenu').addEventListener('click', openSidebar);
+    document.getElementById('overlay').addEventListener('click', closeSidebar);
   }
 }
+// -----------------------------------------------------------
 
 // Initialize and Listeners
 document.addEventListener("DOMContentLoaded", () => {
